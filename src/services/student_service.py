@@ -6,6 +6,10 @@ def to_float(value):
         return None
     return float(value)
 
+def clamp_limit(limit: int, maximum: int = 100) -> int:
+    """Keep result sizes safe for the LLM context."""
+    return max(1, min(int(limit), maximum))
+
 
 class StudentService:
 
@@ -328,3 +332,104 @@ class StudentService:
         finally:
             cursor.close()
             connection.close()        
+
+    def find_at_risk_students(
+        self,
+        attendance_threshold: float = 75.0,
+        marks_threshold: float = 60.0,
+        limit: int = 20,
+    ) -> dict:
+        """
+        Find students whose overall marks and attendance
+        are both below the supplied thresholds.
+        """
+
+        limit = clamp_limit(limit)
+
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    s.student_id,
+                    s.name,
+                    c.course_code,
+                    s.semester,
+                    s.section,
+                    ROUND(ms.average_marks, 2)
+                        AS average_marks,
+                    ROUND(ats.attendance_percentage, 2)
+                        AS attendance_percentage
+                FROM students s
+                JOIN courses c
+                    ON s.course_id = c.course_id
+                JOIN (
+                    SELECT
+                        student_id,
+                        SUM(marks_obtained)
+                        / NULLIF(SUM(max_marks), 0)
+                        * 100 AS average_marks
+                    FROM marks
+                    GROUP BY student_id
+                ) ms
+                    ON s.student_id = ms.student_id
+                JOIN (
+                    SELECT
+                        student_id,
+                        SUM(classes_attended)
+                        / NULLIF(SUM(total_classes), 0)
+                        * 100 AS attendance_percentage
+                    FROM attendance
+                    GROUP BY student_id
+                ) ats
+                    ON s.student_id = ats.student_id
+                WHERE
+                    ms.average_marks < %s
+                    AND ats.attendance_percentage < %s
+                ORDER BY
+                    ms.average_marks ASC,
+                    ats.attendance_percentage ASC
+                LIMIT %s
+                """,
+                (
+                    marks_threshold,
+                    attendance_threshold,
+                    limit,
+                ),
+            )
+
+            rows = cursor.fetchall()
+
+            students = []
+
+            for row in rows:
+                students.append(
+                    {
+                        "student_id": row["student_id"],
+                        "name": row["name"],
+                        "course": row["course_code"],
+                        "semester": row["semester"],
+                        "section": row["section"],
+                        "average_marks": to_float(
+                            row["average_marks"]
+                        ),
+                        "attendance_percentage": to_float(
+                            row["attendance_percentage"]
+                        ),
+                    }
+                )
+
+            return {
+                "criteria": {
+                    "marks_below": marks_threshold,
+                    "attendance_below": attendance_threshold,
+                },
+                "students_found": len(students),
+                "students": students,
+            }
+
+        finally:
+            cursor.close()
+            connection.close()
