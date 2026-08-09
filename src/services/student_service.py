@@ -433,3 +433,95 @@ class StudentService:
         finally:
             cursor.close()
             connection.close()
+
+
+    def find_top_students(
+        self,
+        limit: int = 10,
+        course_code: str = "",
+        semester: int = 0,
+    ) -> dict:
+        """
+        Find the highest-performing students.
+        Optionally filter by course code and semester.
+        """
+
+        limit = clamp_limit(limit)
+
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        try:
+            conditions = []
+            params = []
+
+            if course_code:
+                conditions.append("c.course_code = %s")
+                params.append(course_code)
+
+            if semester > 0:
+                conditions.append("s.semester = %s")
+                params.append(semester)
+
+            where_clause = ""
+
+            if conditions:
+                where_clause = (
+                    "WHERE " + " AND ".join(conditions)
+                )
+
+            query = f"""
+                SELECT
+                    s.student_id,
+                    s.name,
+                    c.course_code,
+                    s.semester,
+                    s.section,
+                    ROUND(
+                        SUM(m.marks_obtained)
+                        / NULLIF(SUM(m.max_marks), 0)
+                        * 100,
+                        2
+                    ) AS average_percentage
+                FROM students s
+                JOIN courses c
+                    ON s.course_id = c.course_id
+                JOIN marks m
+                    ON s.student_id = m.student_id
+
+                {where_clause}
+
+                GROUP BY
+                    s.student_id,
+                    s.name,
+                    c.course_code,
+                    s.semester,
+                    s.section
+
+                ORDER BY average_percentage DESC
+                LIMIT %s
+            """
+
+            params.append(limit)
+
+            cursor.execute(query, tuple(params))
+            rows = cursor.fetchall()
+
+            students = []
+
+            for row in rows:
+                row["average_percentage"] = to_float(
+                    row["average_percentage"]
+                )
+                students.append(row)
+
+            return {
+                "count": len(students),
+                "course_filter": course_code or None,
+                "semester_filter": semester or None,
+                "students": students,
+            }
+
+        finally:
+            cursor.close()
+            connection.close()
