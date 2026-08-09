@@ -1,3 +1,5 @@
+from services.student_service import StudentService
+
 from mcp.server import MCPServer
 
 from database.db import get_connection
@@ -6,7 +8,7 @@ from database.db import get_connection
 # ============================================================
 # Student MCP Server
 # ============================================================
-
+student_service = StudentService()
 mcp = MCPServer("Student Server")
 
 
@@ -159,52 +161,9 @@ def get_student_marks(student_id: int) -> dict:
 
 @mcp.tool()
 def calculate_average(student_id: int) -> dict:
-    """Calculate the student's overall marks percentage."""
+      return student_service.calculate_average(student_id)
 
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    try:
-        cursor.execute(
-            """
-            SELECT
-                s.name,
-                ROUND(
-                    SUM(m.marks_obtained)
-                    / NULLIF(SUM(m.max_marks), 0)
-                    * 100,
-                    2
-                ) AS average
-            FROM students s
-            LEFT JOIN marks m
-                ON s.student_id = m.student_id
-            WHERE s.student_id = %s
-            GROUP BY s.student_id, s.name
-            """,
-            (student_id,),
-        )
-
-        result = cursor.fetchone()
-
-        if result is None:
-            return {"error": "Student not found"}
-
-        if result["average"] is None:
-            return {
-                "student_id": student_id,
-                "name": result["name"],
-                "error": "No marks available",
-            }
-
-        return {
-            "student_id": student_id,
-            "name": result["name"],
-            "average": to_float(result["average"]),
-        }
-
-    finally:
-        cursor.close()
-        connection.close()
+    
 
 
 # ============================================================
