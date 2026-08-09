@@ -525,3 +525,140 @@ class StudentService:
         finally:
             cursor.close()
             connection.close()
+
+    def find_low_attendance_students(
+        self,
+        threshold: float = 75.0,
+        limit: int = 20,
+    ) -> dict:
+        """Find students whose overall attendance is below a threshold."""
+
+        limit = clamp_limit(limit)
+
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    s.student_id,
+                    s.name,
+                    c.course_code,
+                    s.semester,
+                    s.section,
+                    ROUND(
+                        SUM(a.classes_attended)
+                        / NULLIF(SUM(a.total_classes), 0)
+                        * 100,
+                        2
+                    ) AS attendance_percentage
+                FROM students s
+                JOIN courses c
+                    ON s.course_id = c.course_id
+                JOIN attendance a
+                    ON s.student_id = a.student_id
+                GROUP BY
+                    s.student_id,
+                    s.name,
+                    c.course_code,
+                    s.semester,
+                    s.section
+                HAVING attendance_percentage < %s
+                ORDER BY attendance_percentage ASC
+                LIMIT %s
+                """,
+                (threshold, limit),
+            )
+
+            rows = cursor.fetchall()
+
+            for row in rows:
+                row["attendance_percentage"] = to_float(
+                    row["attendance_percentage"]
+                )
+
+            return {
+                "threshold": threshold,
+                "count": len(rows),
+                "students": rows,
+            }
+
+        finally:
+            cursor.close()
+            connection.close()
+
+    def get_subject_performance(
+        self,
+        subject_code: str,
+    ) -> dict:
+        """Get performance statistics for a subject."""
+
+        connection = get_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        try:
+            cursor.execute(
+                """
+                SELECT
+                    sub.subject_code,
+                    sub.subject_name,
+                    c.course_code,
+                    sub.semester,
+                    COUNT(DISTINCT m.student_id)
+                        AS student_count,
+                    ROUND(
+                        SUM(m.marks_obtained)
+                        / NULLIF(SUM(m.max_marks), 0)
+                        * 100,
+                        2
+                    ) AS average_percentage,
+                    ROUND(
+                        MIN(
+                            m.marks_obtained
+                            / NULLIF(m.max_marks, 0)
+                            * 100
+                        ),
+                        2
+                    ) AS lowest_exam_percentage,
+                    ROUND(
+                        MAX(
+                            m.marks_obtained
+                            / NULLIF(m.max_marks, 0)
+                            * 100
+                        ),
+                        2
+                    ) AS highest_exam_percentage
+                FROM subjects sub
+                JOIN courses c
+                    ON sub.course_id = c.course_id
+                LEFT JOIN marks m
+                    ON sub.subject_id = m.subject_id
+                WHERE sub.subject_code = %s
+                GROUP BY
+                    sub.subject_id,
+                    sub.subject_code,
+                    sub.subject_name,
+                    c.course_code,
+                    sub.semester
+                """,
+                (subject_code,),
+            )
+
+            result = cursor.fetchone()
+
+            if result is None:
+                return {"error": "Subject not found"}
+
+            for key in (
+                "average_percentage",
+                "lowest_exam_percentage",
+                "highest_exam_percentage",
+            ):
+                result[key] = to_float(result[key])
+
+            return result
+
+        finally:
+            cursor.close()
+            connection.close()
