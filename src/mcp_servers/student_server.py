@@ -145,81 +145,12 @@ def get_subject_performance(
 # ============================================================
 
 @mcp.tool()
-def get_course_performance(course_code: str) -> dict:
-    """Get overall academic and attendance statistics for a course."""
-
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    try:
-        cursor.execute(
-            """
-            SELECT
-                c.course_code,
-                c.course_name,
-                COUNT(DISTINCT s.student_id)
-                    AS student_count,
-                ROUND(
-                    SUM(m.marks_obtained)
-                    / NULLIF(SUM(m.max_marks), 0)
-                    * 100,
-                    2
-                ) AS average_marks
-            FROM courses c
-            LEFT JOIN students s
-                ON c.course_id = s.course_id
-            LEFT JOIN marks m
-                ON s.student_id = m.student_id
-            WHERE c.course_code = %s
-            GROUP BY
-                c.course_id,
-                c.course_code,
-                c.course_name
-            """,
-            (course_code,),
-        )
-
-        result = cursor.fetchone()
-
-        if result is None:
-            return {"error": "Course not found"}
-
-        cursor.execute(
-            """
-            SELECT
-                ROUND(
-                    SUM(a.classes_attended)
-                    / NULLIF(SUM(a.total_classes), 0)
-                    * 100,
-                    2
-                ) AS average_attendance
-            FROM students s
-            JOIN courses c
-                ON s.course_id = c.course_id
-            JOIN attendance a
-                ON s.student_id = a.student_id
-            WHERE c.course_code = %s
-            """,
-            (course_code,),
-        )
-
-        attendance = cursor.fetchone()
-
-        result["average_marks"] = to_float(
-            result["average_marks"]
-        )
-
-        result["average_attendance"] = to_float(
-            attendance["average_attendance"]
-        )
-
-        return result
-
-    finally:
-        cursor.close()
-        connection.close()
-
-
+def get_course_performance(
+    course_code: str,
+) -> dict:
+    return student_service.get_course_performance(
+        course_code
+    )
 # ============================================================
 # Tool 11: Semester performance
 # ============================================================
@@ -229,179 +160,22 @@ def get_semester_performance(
     course_code: str,
     semester: int,
 ) -> dict:
-    """Get marks and attendance statistics for a course semester."""
-
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    try:
-        cursor.execute(
-            """
-            SELECT
-                c.course_code,
-                s.semester,
-                COUNT(DISTINCT s.student_id)
-                    AS student_count,
-                ROUND(
-                    SUM(m.marks_obtained)
-                    / NULLIF(SUM(m.max_marks), 0)
-                    * 100,
-                    2
-                ) AS average_marks
-            FROM students s
-            JOIN courses c
-                ON s.course_id = c.course_id
-            JOIN marks m
-                ON s.student_id = m.student_id
-            WHERE
-                c.course_code = %s
-                AND s.semester = %s
-            GROUP BY c.course_code, s.semester
-            """,
-            (course_code, semester),
-        )
-
-        result = cursor.fetchone()
-
-        if result is None:
-            return {
-                "error": "No matching course/semester data"
-            }
-
-        cursor.execute(
-            """
-            SELECT
-                ROUND(
-                    SUM(a.classes_attended)
-                    / NULLIF(SUM(a.total_classes), 0)
-                    * 100,
-                    2
-                ) AS average_attendance
-            FROM students s
-            JOIN courses c
-                ON s.course_id = c.course_id
-            JOIN attendance a
-                ON s.student_id = a.student_id
-            WHERE
-                c.course_code = %s
-                AND s.semester = %s
-            """,
-            (course_code, semester),
-        )
-
-        attendance = cursor.fetchone()
-
-        result["average_marks"] = to_float(
-            result["average_marks"]
-        )
-
-        result["average_attendance"] = to_float(
-            attendance["average_attendance"]
-        )
-
-        return result
-
-    finally:
-        cursor.close()
-        connection.close()
-
+    return student_service.get_semester_performance(
+        course_code,
+        semester,
+    )
 
 # ============================================================
 # Tool 12: Compare students
 # ============================================================
 
 @mcp.tool()
-def compare_students(student_ids: list[int]) -> dict:
-    """Compare marks and attendance for multiple students."""
-
-    if not student_ids:
-        return {"error": "No student IDs supplied"}
-
-    # Protect context size.
-    student_ids = student_ids[:20]
-
-    connection = get_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    try:
-        placeholders = ", ".join(
-            ["%s"] * len(student_ids)
-        )
-
-        query = f"""
-            SELECT
-                s.student_id,
-                s.name,
-                c.course_code,
-                s.semester,
-
-                ROUND(
-                    ms.average_marks,
-                    2
-                ) AS average_marks,
-
-                ROUND(
-                    ats.attendance_percentage,
-                    2
-                ) AS attendance_percentage
-
-            FROM students s
-
-            JOIN courses c
-                ON s.course_id = c.course_id
-
-            LEFT JOIN (
-                SELECT
-                    student_id,
-                    SUM(marks_obtained)
-                    / NULLIF(SUM(max_marks), 0)
-                    * 100 AS average_marks
-                FROM marks
-                GROUP BY student_id
-            ) ms
-                ON s.student_id = ms.student_id
-
-            LEFT JOIN (
-                SELECT
-                    student_id,
-                    SUM(classes_attended)
-                    / NULLIF(SUM(total_classes), 0)
-                    * 100 AS attendance_percentage
-                FROM attendance
-                GROUP BY student_id
-            ) ats
-                ON s.student_id = ats.student_id
-
-            WHERE s.student_id IN ({placeholders})
-
-            ORDER BY average_marks DESC
-        """
-
-        cursor.execute(
-            query,
-            tuple(student_ids),
-        )
-
-        rows = cursor.fetchall()
-
-        for row in rows:
-            row["average_marks"] = to_float(
-                row["average_marks"]
-            )
-            row["attendance_percentage"] = to_float(
-                row["attendance_percentage"]
-            )
-
-        return {
-            "requested_students": student_ids,
-            "students_found": len(rows),
-            "comparison": rows,
-        }
-
-    finally:
-        cursor.close()
-        connection.close()
-
+def compare_students(
+    student_ids: list[int],
+) -> dict:
+    return student_service.compare_students(
+        student_ids
+    )
 
 # ============================================================
 # Tool 13: Class statistics
