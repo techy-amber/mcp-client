@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 from groq import Groq
 from mcp import Client
 
-from servers.calculator_server import mcp as calculator_mcp
-from servers.student_server import mcp as student_mcp
+from mcp_servers.calculator_server import mcp as calculator_mcp
+from mcp_servers.student_server import mcp as student_mcp
 
 
 # ============================================================
