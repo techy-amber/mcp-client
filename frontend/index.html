@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Student AI Analytics</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+</head>
+
+
+<body>
+
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
+
+    <header class="header">
+
+        <div>
+
+            <h1>
+                Student AI Analytics
+            </h1>
+
+            <p>
+                AI-powered Student Management Dashboard
+            </p>
+
+        </div>
+
+    </header>
+
+
+
+    <main class="container">
+
+
+        <!-- =================================================
+             DASHBOARD STATISTICS
+        ================================================== -->
+
+        <section class="stats-grid">
+
+
+            <div class="stat-card">
+
+                <h3>
+                    Total Students
+                </h3>
+
+                <p id="totalStudents">
+                    -
+                </p>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <h3>
+                    Total Courses
+                </h3>
+
+                <p id="totalCourses">
+                    -
+                </p>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <h3>
+                    Average Marks
+                </h3>
+
+                <p id="averageMarks">
+                    -
+                </p>
+
+            </div>
+
+
+            <div class="stat-card">
+
+                <h3>
+                    Average Attendance
+                </h3>
+
+                <p id="averageAttendance">
+                    -
+                </p>
+
+            </div>
+
+
+        </section>
+
+
+
+        <!-- =================================================
+             STUDENT SEARCH
+        ================================================== -->
+
+        <section class="card">
+
+            <h2>
+                Search Student
+            </h2>
+
+
+            <div class="search-box">
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Enter student name or enrollment number"
+                >
+
+
+                <button
+                    onclick="searchStudent()"
+                >
+                    Search
+                </button>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             STUDENT RESULTS
+        ================================================== -->
+
+        <section class="card">
+
+            <h2>
+                Search Results
+            </h2>
+
+
+            <div id="searchResults">
+
+                <p class="muted">
+                    Search for a student to see results.
+                </p>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             STUDENT COMPARISON
+        ================================================== -->
+
+        <section class="card">
+
+            <h2>
+                Compare Students
+            </h2>
+
+
+            <p class="muted">
+                Enter up to three student IDs to compare
+                their academic performance and attendance.
+            </p>
+
+
+            <br>
+
+
+            <div class="search-box">
+
+
+                <input
+                    type="number"
+                    id="compareStudent1"
+                    placeholder="Student ID 1"
+                >
+
+
+                <input
+                    type="number"
+                    id="compareStudent2"
+                    placeholder="Student ID 2"
+                >
+
+
+                <input
+                    type="number"
+                    id="compareStudent3"
+                    placeholder="Student ID 3"
+                >
+
+
+                <button
+                    onclick="compareStudents()"
+                >
+                    Compare
+                </button>
+
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             COMPARISON RESULTS
+        ================================================== -->
+
+        <section class="card">
+
+            <h2>
+                Comparison Results
+            </h2>
+
+
+            <div id="comparisonResults">
+
+                <p class="muted">
+                    Enter student IDs above to compare students.
+                </p>
+
+            </div>
+
+        </section>
+
+<!-- =================================================
+     AI ASSISTANT
+================================================== -->
+
+<section class="card">
+
+    <h2>
+        🤖 Ask Student AI
+    </h2>
+
+    <p class="muted">
+        Ask questions about students, marks, attendance,
+        performance and risk.
+    </p>
+
+    <br>
+
+    <div class="search-box">
+
+        <input
+            type="text"
+            id="aiQuestion"
+            placeholder="Example: What is the average of student 100776?"
+        >
+
+        <button
+            onclick="askAI()"
+        >
+            Ask AI
+        </button>
+
+    </div>
+
+</section>
+
+
+<!-- =================================================
+     AI RESPONSE
+================================================== -->
+
+<section class="card">
+
+    <h2>
+        AI Response
+    </h2>
+
+    <div id="aiResponse">
+
+        <p class="muted">
+            Ask a question to get an AI-powered response.
+        </p>
+
+    </div>
+
+</section>
+
+        <!-- =================================================
+             ANALYTICS
+        ================================================== -->
+
+        <section class="card">
+
+            <h2>
+                Analytics
+            </h2>
+
+
+            <div class="analytics-grid">
+
+
+                <button
+                    onclick="getTopStudents()"
+                >
+                    Top Students
+                </button>
+
+
+                <button
+                    onclick="getHighRiskStudents()"
+                >
+                    High Risk Students
+                </button>
+
+
+                <button
+                    onclick="getLowAttendanceStudents()"
+                >
+                    Low Attendance
+                </button>
+
+
+                <button
+                    onclick="getDatabaseSummary()"
+                >
+                    Database Summary
+                </button>
+
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             ANALYTICS RESULTS
+        ================================================== -->
+
+        <section class="card">
+
+            <h2>
+                Analytics Results
+            </h2>
+
+
+            <div id="analyticsResults">
+
+                <p class="muted">
+                    Select an analytics option above.
+                </p>
+
+            </div>
+
+        </section>
+
+
+    </main>
+
+
+
+    <!-- =====================================================
+         FOOTER
+    ====================================================== -->
+
+    <footer>
+
+        <p>
+            Student AI Analytics • Powered by FastAPI & MCP
+        </p>
+
+    </footer>
+
+
+
+    <script src="script.js"></script>
+
+
+</body>
+
+</html>
