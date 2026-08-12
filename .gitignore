@@ -11,3 +11,6 @@ wheels/
 
 # Environment variables / API keys
 .env
+
+student_ai_backup.sql
+
