@@ -204,6 +204,62 @@ class StudentAIAssistant:
 
 
     # ========================================================
+    # Keep the Groq request within a safe size
+    # ========================================================
+
+    def _trim_conversation(self, max_user_turns: int = 6):
+        """Keep the system message and recent complete user turns."""
+        if len(self.messages) <= 1:
+            return
+
+        user_indexes = [
+            index
+            for index, message in enumerate(self.messages)
+            if message.get("role") == "user"
+        ]
+
+        if len(user_indexes) <= max_user_turns:
+            return
+
+        start_index = user_indexes[-max_user_turns]
+        self.messages = [self.messages[0]] + self.messages[start_index:]
+
+    @staticmethod
+    def _limit_tool_result(tool_result, max_chars: int = 12000):
+        """Prevent one unusually large MCP result from bloating the request."""
+        if tool_result is None:
+            return None
+
+        try:
+            serialized = json.dumps(tool_result, ensure_ascii=False)
+        except Exception:
+            serialized = str(tool_result)
+
+        if len(serialized) <= max_chars:
+            return tool_result
+
+        if isinstance(tool_result, dict):
+            compact = dict(tool_result)
+            for key, value in list(compact.items()):
+                if isinstance(value, list) and len(value) > 20:
+                    compact[key] = value[:20]
+                    compact["_truncated"] = True
+                    compact["_note"] = (
+                        "Only the first 20 records were sent to the AI "
+                        "to keep the request within a safe size."
+                    )
+                    return compact
+
+        return {
+            "truncated": True,
+            "message": (
+                "The MCP result was too large to send in full. "
+                "Only a shortened result was provided."
+            ),
+            "data_preview": serialized[:max_chars],
+        }
+
+    # ========================================================
     # Process one user message
     # ========================================================
 
@@ -229,6 +285,9 @@ class StudentAIAssistant:
             # =================================================
 
             while True:
+
+                # Prevent conversation history from growing indefinitely.
+                self._trim_conversation(max_user_turns=6)
 
                 response = groq_client.chat.completions.create(
                     model="qwen/qwen3.6-27b",
@@ -371,13 +430,18 @@ class StudentAIAssistant:
                     # Send result back to Qwen
                     # =========================================
 
+                    safe_tool_result = self._limit_tool_result(
+                        tool_result
+                    )
+
                     self.messages.append(
                         {
                             "role": "tool",
                             "tool_call_id": tool_call.id,
                             "name": tool_name,
                             "content": json.dumps(
-                                tool_result
+                                safe_tool_result,
+                                ensure_ascii=False
                             ),
                         }
                     )
@@ -395,6 +459,20 @@ class StudentAIAssistant:
 
             print("\n[ASSISTANT ERROR]")
             print(error)
+
+            error_text = str(error).lower()
+
+            if (
+                "413" in error_text
+                or "request too large" in error_text
+                or "payload too large" in error_text
+            ):
+                self.reset_conversation()
+                return (
+                    "The conversation became too large for the AI model. "
+                    "I cleared the older chat history. Please ask the "
+                    "question again."
+                )
 
             return (
                 "The AI service is temporarily unavailable. "
