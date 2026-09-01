@@ -1309,6 +1309,230 @@ async function getDatabaseSummary() {
 
 
 // ============================================================
+// AI ASSISTANT — VERSION 2.0
+// ============================================================
+
+let aiConversationHistory = [];
+let currentSpeech = null;
+
+
+// ============================================================
+// ESCAPE HTML
+// ============================================================
+
+function escapeHTML(text) {
+
+    const div = document.createElement("div");
+
+    div.textContent = String(text ?? "");
+
+    return div.innerHTML;
+}
+
+
+// ============================================================
+// BASIC MARKDOWN FORMATTER
+// ============================================================
+
+function formatAIResponse(text) {
+
+    let html = escapeHTML(text);
+
+    html = html.replace(
+        /```([\s\S]*?)```/g,
+        "<pre class=\"ai-code\"><code>$1</code></pre>"
+    );
+
+    html = html.replace(
+        /\*\*(.*?)\*\*/g,
+        "<strong>$1</strong>"
+    );
+
+    html = html.replace(
+        /^### (.*)$/gm,
+        "<h4>$1</h4>"
+    );
+
+    html = html.replace(
+        /^## (.*)$/gm,
+        "<h3>$1</h3>"
+    );
+
+    html = html.replace(
+        /^# (.*)$/gm,
+        "<h2>$1</h2>"
+    );
+
+    html = html.replace(
+        /^[-*] (.*)$/gm,
+        "<li>$1</li>"
+    );
+
+    html = html.replace(
+        /(<li>.*<\/li>)/gs,
+        "<ul>$1</ul>"
+    );
+
+    html = html.replace(
+        /^\d+\.\s+(.*)$/gm,
+        "<li>$1</li>"
+    );
+
+    html = html.replace(
+        /\n/g,
+        "<br>"
+    );
+
+    return html;
+}
+
+
+// ============================================================
+// RENDER CONVERSATION
+// ============================================================
+
+function renderAIConversation() {
+
+    const conversation =
+        document.getElementById("aiConversation");
+
+    if (!conversation) {
+        return;
+    }
+
+
+    if (aiConversationHistory.length === 0) {
+
+        conversation.innerHTML = `
+
+            <div class="ai-welcome">
+
+                <div class="ai-welcome-icon">
+                    🤖
+                </div>
+
+                <h3>
+                    How can I help you?
+                </h3>
+
+                <p class="muted">
+                    Ask me about student performance,
+                    attendance, marks or risk analysis.
+                </p>
+
+                <div class="ai-suggestions">
+
+                    <button
+                        type="button"
+                        onclick="useAISuggestion('Show me the top 10 students')"
+                    >
+                        🏆 Top students
+                    </button>
+
+                    <button
+                        type="button"
+                        onclick="useAISuggestion('Show me the high-risk students')"
+                    >
+                        ⚠️ High-risk students
+                    </button>
+
+                    <button
+                        type="button"
+                        onclick="useAISuggestion('Show me students with attendance below 75%')"
+                    >
+                        📊 Low attendance
+                    </button>
+
+                </div>
+
+            </div>
+
+        `;
+
+        return;
+    }
+
+
+    conversation.innerHTML =
+        aiConversationHistory.map(
+            (message, index) => {
+
+                if (message.role === "user") {
+
+                    return `
+
+                        <div class="ai-message user-message">
+
+                            <div class="message-label">
+                                👤 You
+                            </div>
+
+                            <div class="message-bubble user-bubble">
+                                ${escapeHTML(message.content)}
+                            </div>
+
+                        </div>
+
+                    `;
+                }
+
+
+                return `
+
+                    <div class="ai-message assistant-message">
+
+                        <div class="message-label">
+                            🤖 Student AI
+                        </div>
+
+                        <div class="message-bubble assistant-bubble">
+
+                            <div class="ai-answer">
+                                ${formatAIResponse(message.content)}
+                            </div>
+
+                            <div class="ai-message-actions">
+
+                                <button
+                                    type="button"
+                                    onclick="copyAIResponse(${index})"
+                                >
+                                    📋 Copy
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onclick="readAIResponse(${index})"
+                                >
+                                    🔊 Read Aloud
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onclick="shareAIResponse(${index})"
+                                >
+                                    ↗ Share
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                `;
+
+            }
+        )
+        .join("");
+
+
+    conversation.scrollTop =
+        conversation.scrollHeight;
+}
+
+
+// ============================================================
 // ASK AI
 // ============================================================
 
@@ -1317,8 +1541,16 @@ async function askAI() {
     const input =
         document.getElementById("aiQuestion");
 
-    const responseDiv =
-        document.getElementById("aiResponse");
+    const conversation =
+        document.getElementById("aiConversation");
+
+    const sendButton =
+        document.getElementById("aiSendButton");
+
+
+    if (!input || !conversation) {
+        return;
+    }
 
 
     const question =
@@ -1326,22 +1558,59 @@ async function askAI() {
 
 
     if (!question) {
-
-        responseDiv.innerHTML = `
-            <p class="muted">
-                Please enter a question.
-            </p>
-        `;
-
         return;
     }
 
 
-    responseDiv.innerHTML = `
-        <p class="muted">
-            🤖 AI is thinking...
-        </p>
+    aiConversationHistory.push({
+        role: "user",
+        content: question
+    });
+
+
+    input.value = "";
+
+    input.style.height = "auto";
+
+
+    renderAIConversation();
+
+
+    if (sendButton) {
+        sendButton.disabled = true;
+    }
+
+
+    const thinking =
+        document.createElement("div");
+
+    thinking.className =
+        "ai-message assistant-message";
+
+    thinking.innerHTML = `
+
+        <div class="message-label">
+            🤖 Student AI
+        </div>
+
+        <div class="message-bubble assistant-bubble ai-thinking">
+
+            <span>Thinking</span>
+
+            <span class="thinking-dots">
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+            </span>
+
+        </div>
+
     `;
+
+    conversation.appendChild(thinking);
+
+    conversation.scrollTop =
+        conversation.scrollHeight;
 
 
     try {
@@ -1388,41 +1657,22 @@ async function askAI() {
 
         if (!answer) {
 
-            responseDiv.innerHTML = `
-                <p class="muted">
-                    AI returned an empty response.
-                </p>
-            `;
-
-            return;
+            throw new Error(
+                "AI returned an empty response."
+            );
         }
 
 
-        // Basic formatting for readable output
-
-        const formattedAnswer =
-            String(answer)
-                .replace(
-                    /\n/g,
-                    "<br>"
-                );
+        thinking.remove();
 
 
-        responseDiv.innerHTML = `
+        aiConversationHistory.push({
+            role: "assistant",
+            content: String(answer)
+        });
 
-            <div class="student-result">
 
-                <h3>
-                    🤖 Student AI
-                </h3>
-
-                <p>
-                    ${formattedAnswer}
-                </p>
-
-            </div>
-
-        `;
+        renderAIConversation();
 
 
     } catch (error) {
@@ -1433,25 +1683,305 @@ async function askAI() {
         );
 
 
-        responseDiv.innerHTML = `
+        thinking.remove();
 
-            <p class="muted">
-                Unable to connect to Student AI.
-            </p>
 
-            <p class="muted">
-                Please make sure the FastAPI server
-                is running.
-            </p>
+        aiConversationHistory.push({
+            role: "assistant",
+            content:
+                "I was unable to connect to Student AI. Please check the backend connection and try again."
+        });
 
-        `;
+
+        renderAIConversation();
+
+
+    } finally {
+
+        if (sendButton) {
+            sendButton.disabled = false;
+        }
+
+        input.focus();
 
     }
 }
 
 
 // ============================================================
-// AI ENTER KEY SUPPORT
+// SUGGESTION BUTTON
+// ============================================================
+
+function useAISuggestion(question) {
+
+    const input =
+        document.getElementById("aiQuestion");
+
+
+    if (!input) {
+        return;
+    }
+
+
+    input.value = question;
+
+    input.focus();
+
+    askAI();
+}
+
+
+// ============================================================
+// NEW CHAT
+// ============================================================
+
+function startNewChat() {
+
+    stopReading();
+
+    aiConversationHistory = [];
+
+    renderAIConversation();
+
+
+    const input =
+        document.getElementById("aiQuestion");
+
+
+    if (input) {
+
+        input.value = "";
+
+        input.style.height = "auto";
+
+        input.focus();
+
+    }
+}
+
+
+// ============================================================
+// COPY AI RESPONSE
+// ============================================================
+
+async function copyAIResponse(index) {
+
+    const message =
+        aiConversationHistory[index];
+
+
+    if (
+        !message ||
+        message.role !== "assistant"
+    ) {
+        return;
+    }
+
+
+    try {
+
+        await navigator.clipboard.writeText(
+            message.content
+        );
+
+        showTemporaryMessage("Copied!");
+
+
+    } catch (error) {
+
+        console.error(
+            "Copy failed:",
+            error
+        );
+
+    }
+}
+
+
+// ============================================================
+// TEMPORARY NOTIFICATION
+// ============================================================
+
+function showTemporaryMessage(message) {
+
+    const notification =
+        document.createElement("div");
+
+    notification.className =
+        "ai-toast";
+
+    notification.textContent =
+        message;
+
+
+    document.body.appendChild(
+        notification
+    );
+
+
+    setTimeout(
+        () => {
+            notification.remove();
+        },
+        1800
+    );
+}
+
+
+// ============================================================
+// READ ALOUD
+// ============================================================
+
+function readAIResponse(index) {
+
+    const message =
+        aiConversationHistory[index];
+
+
+    if (
+        !message ||
+        message.role !== "assistant"
+    ) {
+        return;
+    }
+
+
+    if (
+        !("speechSynthesis" in window)
+    ) {
+
+        showTemporaryMessage(
+            "Read Aloud is not supported by this browser."
+        );
+
+        return;
+    }
+
+
+    stopReading();
+
+
+    currentSpeech =
+        new SpeechSynthesisUtterance(
+            message.content
+        );
+
+
+    currentSpeech.rate = 1;
+    currentSpeech.pitch = 1;
+    currentSpeech.volume = 1;
+
+
+    currentSpeech.onend = function () {
+
+        currentSpeech = null;
+
+    };
+
+
+    currentSpeech.onerror =
+        function () {
+
+            currentSpeech = null;
+
+        };
+
+
+    window.speechSynthesis.speak(
+        currentSpeech
+    );
+
+}
+
+
+// ============================================================
+// STOP READING
+// ============================================================
+
+function stopReading() {
+
+    if (
+        "speechSynthesis" in window
+    ) {
+
+        window.speechSynthesis.cancel();
+
+    }
+
+
+    currentSpeech = null;
+}
+
+
+// ============================================================
+// SHARE AI RESPONSE
+// ============================================================
+
+async function shareAIResponse(index) {
+
+    const message =
+        aiConversationHistory[index];
+
+
+    if (
+        !message ||
+        message.role !== "assistant"
+    ) {
+        return;
+    }
+
+
+    const shareData = {
+
+        title:
+            "Student AI Response",
+
+        text:
+            message.content
+
+    };
+
+
+    try {
+
+        if (navigator.share) {
+
+            await navigator.share(
+                shareData
+            );
+
+        } else {
+
+            await navigator.clipboard.writeText(
+                message.content
+            );
+
+
+            showTemporaryMessage(
+                "Response copied — ready to share!"
+            );
+
+        }
+
+    } catch (error) {
+
+        if (
+            error.name !== "AbortError"
+        ) {
+
+            console.error(
+                "Share failed:",
+                error
+            );
+
+        }
+
+    }
+}
+
+
+// ============================================================
+// AI KEYBOARD SUPPORT
 // ============================================================
 
 document.addEventListener(
@@ -1467,26 +1997,45 @@ document.addEventListener(
             );
 
 
-        if (aiInput) {
+        if (!aiInput) {
+            return;
+        }
 
-            aiInput.addEventListener(
-                "keydown",
-                function (event) {
 
-                    if (
-                        event.key === "Enter"
-                    ) {
+        aiInput.addEventListener(
+            "keydown",
+            function (event) {
 
-                        event.preventDefault();
+                if (
+                    event.key === "Enter" &&
+                    !event.shiftKey
+                ) {
 
-                        askAI();
+                    event.preventDefault();
 
-                    }
+                    askAI();
 
                 }
-            );
 
-        }
+            }
+        );
+
+
+        aiInput.addEventListener(
+            "input",
+            function () {
+
+                this.style.height =
+                    "auto";
+
+                this.style.height =
+                    Math.min(
+                        this.scrollHeight,
+                        160
+                    ) + "px";
+
+            }
+        );
 
     }
 );
