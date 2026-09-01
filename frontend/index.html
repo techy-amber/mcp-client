@@ -281,22 +281,115 @@
 
 
 <!-- =================================================
-     AI RESPONSE
+     AI ASSISTANT — VERSION 2.0
 ================================================== -->
 
-<section class="card">
+<section class="card ai-assistant-card">
 
-    <h2>
-        AI Response
-    </h2>
+    <div class="ai-header">
 
-    <div id="aiResponse">
+        <div>
+            <h2>🤖 Student AI</h2>
 
-        <p class="muted">
-            Ask a question to get an AI-powered response.
-        </p>
+            <p class="muted">
+                Ask questions about students, marks,
+                attendance, performance and risk.
+            </p>
+        </div>
+
+        <button
+            type="button"
+            class="new-chat-btn"
+            onclick="startNewChat()"
+        >
+            + New Chat
+        </button>
 
     </div>
+
+
+    <!-- =================================================
+         CONVERSATION
+    ================================================== -->
+
+    <div
+        id="aiConversation"
+        class="ai-conversation"
+    >
+
+        <div class="ai-welcome">
+
+            <div class="ai-welcome-icon">
+                🤖
+            </div>
+
+            <h3>
+                How can I help you?
+            </h3>
+
+            <p class="muted">
+                Ask me about student performance,
+                attendance, marks or risk analysis.
+            </p>
+
+            <div class="ai-suggestions">
+
+                <button
+                    type="button"
+                    onclick="useAISuggestion('Show me the top 10 students')"
+                >
+                    🏆 Top students
+                </button>
+
+                <button
+                    type="button"
+                    onclick="useAISuggestion('Show me the high-risk students')"
+                >
+                    ⚠️ High-risk students
+                </button>
+
+                <button
+                    type="button"
+                    onclick="useAISuggestion('Show me students with attendance below 75%')"
+                >
+                    📊 Low attendance
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         AI INPUT
+    ================================================== -->
+
+    <div class="ai-input-area">
+
+        <textarea
+            id="aiQuestion"
+            rows="1"
+            placeholder="Ask Student AI anything..."
+            aria-label="Ask Student AI"
+        ></textarea>
+
+        <button
+            type="button"
+            id="aiSendButton"
+            class="ai-send-btn"
+            onclick="askAI()"
+            aria-label="Send message"
+        >
+            ➤
+        </button>
+
+    </div>
+
+    <p class="ai-input-hint">
+        Press Enter to send • Shift + Enter for a new line
+    </p>
 
 </section>
 
